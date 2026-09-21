@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Вечер</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500&family=Spectral:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1B1A29;
+    --panel:#252339;
+    --panel-hover:#2E2B47;
+    --ink:#F0ECF4;
+    --muted:#A8A2BC;
+    --line:#3A3652;
+    --gold:#C9A961;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html,body{margin:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Onest",system-ui,-apple-system,sans-serif;
+    font-size:17px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    justify-content:center;
+    padding:40px 20px 56px;
+  }
+  main{width:100%;max-width:480px}
+
+  .intro{margin:0 0 34px}
+  .intro p{
+    font-family:"Spectral",Georgia,serif;
+    font-size:clamp(20px,5.4vw,24px);
+    line-height:1.4;
+    margin:0 0 6px;
+  }
+  .intro p:last-child{margin-bottom:0}
+  .intro p.dim{color:var(--muted);font-size:clamp(17px,4.4vw,19px)}
+
+  .question{
+    font-family:"Spectral",Georgia,serif;
+    font-size:clamp(21px,5.6vw,25px);
+    font-weight:500;
+    line-height:1.35;
+    margin:0 0 20px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+
+  .options{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+  .option{
+    width:100%;
+    display:block;
+    text-align:left;
+    font:inherit;
+    color:var(--ink);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:15px 17px;
+    cursor:pointer;
+    transition:background .15s,border-color .15s;
+  }
+  .option:hover{background:var(--panel-hover);border-color:var(--gold)}
+  .option:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .option:disabled{opacity:.45;cursor:default}
+  .option .label{font-weight:500}
+  .option .note{display:block;color:var(--muted);font-size:15px;font-weight:400;margin-top:2px}
+
+  .result{padding:4px 0}
+  .result p{
+    font-family:"Spectral",Georgia,serif;
+    font-size:clamp(20px,5.4vw,24px);
+    line-height:1.45;
+    margin:0 0 8px;
+  }
+  .result p:first-child{color:var(--gold)}
+  .status{
+    margin-top:26px;
+    color:var(--muted);
+    font-family:"Onest",sans-serif;
+    font-size:14px;
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="intro" id="intro"></div>
+  <h1 class="question" id="question"></h1>
+  <ul class="options" id="options"></ul>
+  <div class="result" id="result" hidden></div>
+</main>
+
+<script>
+/* =======================================================================
+   НАСТРОЙКА — меняйте только этот блок
+   ======================================================================= */
+const CONFIG = {
+
+  // Почта, на которую придёт письмо с выбором
+  email: "L2345678999@yandex.ru",
+
+  // Текст перед вопросом (каждая строка — отдельный абзац)
+  intro: [
+    "Рад, что ты решила продолжить.",
+    "Первый вопрос очень простой."
+  ],
+
+  // Сам вопрос
+  question: "Как бы ты хотела провести завтрашний вечер?",
+
+  // Варианты ответа: label — кнопка, note — пояснение (можно "")
+  options: [
+    { label: "Уютно",      note: "" },
+    { label: "Отвлечённо", note: "" },
+    { label: "Мило",       note: "" }
+  ],
+
+  // Что появится на странице после любого выбора
+  result: [
+    "Выбор принят.",
+    "Хороший выбор.",
+    "Завтра просто будь дома в удобное для тебя время.",
+    "Остальное я возьму на себя."
+  ]
+};
+/* ============ ДАЛЬШЕ МЕНЯТЬ НЕ НУЖНО ============ */
+
+const $intro    = document.getElementById("intro");
+const $question = document.getElementById("question");
+const $options  = document.getElementById("options");
+const $result   = document.getElementById("result");
+
+CONFIG.intro.forEach((line, i) => {
+  const p = document.createElement("p");
+  if (i > 0) p.className = "dim";
+  p.textContent = line;
+  $intro.appendChild(p);
+});
+$question.textContent = CONFIG.question;
+
+CONFIG.options.forEach(opt => {
+  const li = document.createElement("li");
+  const btn = document.createElement("button");
+  btn.className = "option";
+  btn.type = "button";
+
+  const label = document.createElement("span");
+  label.className = "label";
+  label.textContent = opt.label;
+  btn.appendChild(label);
+
+  if (opt.note) {
+    const note = document.createElement("span");
+    note.className = "note";
+    note.textContent = opt.note;
+    btn.appendChild(note);
+  }
+
+  btn.addEventListener("click", () => choose(opt));
+  li.appendChild(btn);
+  $options.appendChild(li);
+});
+
+async function choose(opt) {
+  document.querySelectorAll(".option").forEach(b => b.disabled = true);
+
+  try {
+    localStorage.setItem("last_choice", JSON.stringify({
+      label: opt.label, at: new Date().toISOString()
+    }));
+  } catch (e) {}
+
+  $options.hidden = true;
+  $question.hidden = true;
+  $intro.hidden = true;
+  $result.hidden = false;
+
+  CONFIG.result.forEach(line => {
+    const p = document.createElement("p");
+    p.textContent = line;
+    $result.appendChild(p);
+  });
+
+  const status = document.createElement("p");
+  status.className = "status";
+  $result.appendChild(status);
+
+  try {
+    await notify(opt);
+    status.textContent = "Ответ отправлен.";
+  } catch (e) {
+    status.textContent = "";
+  }
+}
+
+async function notify(opt) {
+  const res = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(CONFIG.email), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      _subject: "Ответ: " + opt.label,
+      _template: "table",
+      _captcha: "false",
+      "Выбор": opt.label,
+      "Время": new Date().toLocaleString("ru-RU"),
+      "Страница": location.href
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === "false" || data.success === false) throw new Error("fail");
+}
+</script>
+</body>
+</html>
